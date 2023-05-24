@@ -30,7 +30,7 @@ class InitialState(Step):
         super().__init__(test_case=test_case, name='initial_state')
         self.resolution = resolution
         for file in ['base_mesh.nc', 'culled_mesh.nc', 'culled_graph.info',
-                     'initial_state.nc']:
+                     'initial_state.nc', 'forcing.nc']:
             self.add_output_file(file)
 
         self.add_input_file(filename='ecosys_single_column_ics.nc',
@@ -66,11 +66,59 @@ class InitialState(Step):
         init_vertical_coord(config, ds)
 
         section = config['single_column']
+        surface_temperature = section.getfloat(
+            'surface_temperature')
+        temperature_gradient_mixed_layer = section.getfloat(
+            'temperature_gradient_mixed_layer')
+        temperature_difference_across_mixed_layer = section.getfloat(
+            'temperature_difference_across_mixed_layer')
+        temperature_gradient_interior = section.getfloat(
+            'temperature_gradient_interior')
+        mixed_layer_depth_temperature = section.getfloat(
+            'mixed_layer_depth_temperature')
+        surface_salinity = section.getfloat(
+            'surface_salinity')
+        salinity_gradient_mixed_layer = section.getfloat(
+            'salinity_gradient_mixed_layer')
+        salinity_difference_across_mixed_layer = section.getfloat(
+            'salinity_difference_across_mixed_layer')
+        salinity_gradient_interior = section.getfloat(
+            'salinity_gradient_interior')
+        mixed_layer_depth_salinity = section.getfloat(
+            'mixed_layer_depth_salinity')
         coriolis_parameter = section.getfloat(
             'coriolis_parameter')
 
-        ecosys_ic_vars = {'temperature', 'salinity',
-                          'FESEDFLUX', 'ALK', 'ALK_ALT_CO2', 'DIC',
+        z_mid = ds.refZMid
+
+        temperature_at_mixed_layer_depth = (
+            surface_temperature + temperature_difference_across_mixed_layer)
+        temperature_vert = xr.where(
+            z_mid > -mixed_layer_depth_temperature,
+            surface_temperature + temperature_gradient_mixed_layer * z_mid,
+            temperature_at_mixed_layer_depth +
+            temperature_gradient_interior *
+            (z_mid + mixed_layer_depth_temperature))
+        temperature_vert[0] = surface_temperature
+        temperature, _ = xr.broadcast(temperature_vert, x_cell)
+        temperature = temperature.transpose('nCells', 'nVertLevels')
+        temperature = temperature.expand_dims(dim='Time', axis=0)
+
+        salinity_at_mixed_layer_depth = (
+            surface_salinity + salinity_difference_across_mixed_layer)
+        salinity_vert = xr.where(
+            z_mid > -mixed_layer_depth_salinity,
+            surface_salinity + salinity_gradient_mixed_layer * z_mid,
+            salinity_at_mixed_layer_depth +
+            salinity_gradient_interior *
+            (z_mid + mixed_layer_depth_salinity))
+        salinity_vert[0] = surface_salinity
+        salinity, _ = xr.broadcast(salinity_vert, x_cell)
+        salinity = salinity.transpose('nCells', 'nVertLevels')
+        salinity = salinity.expand_dims(dim='Time', axis=0)
+
+# 'temperature', 'salinity',
+        ecosys_ic_vars = {'FESEDFLUX', 'ALK', 'ALK_ALT_CO2', 'DIC',
                           'DIC_ALT_CO2', 'DOC', 'DOCr', 'DON',
                           'DONr', 'DOP', 'DOPr', 'Fe', 'Lig',
                           'NH4', 'NO3', 'O2', 'PH_PREV_3D',
@@ -87,11 +135,17 @@ class InitialState(Step):
             field = field.expand_dims(dim='Time', axis=0)
             ds[var] = field
 
+#        ecosys_ic_vars = {'PAR_surface', 'PH_PREV', 'PH_PREV_ALT_CO2',
+#                          'temperatureSurfaceValue', 'salinitySurfaceValue',
+#                           'CO2_alt_gas_flux', 'CO2_gas_flux'}
+
         normal_velocity, _ = xr.broadcast(
             xr.zeros_like(ds.xEdge), ds.refBottomDepth)
         normal_velocity = normal_velocity.transpose('nEdges', 'nVertLevels')
         normal_velocity = normal_velocity.expand_dims(dim='Time', axis=0)
 
+        ds['temperature'] = temperature
+        ds['salinity'] = salinity
         ds['normalVelocity'] = normal_velocity
         ds['fCell'] = coriolis_parameter * xr.ones_like(x_cell)
         ds['fEdge'] = coriolis_parameter * xr.ones_like(ds.xEdge)
@@ -101,3 +155,88 @@ class InitialState(Step):
         ds.attrs['ny'] = ny
         ds.attrs['dc'] = dc
         write_netcdf(ds, 'initial_state.nc')
+
+        ds_forcing = xr.Dataset()
+        forcing_array_surface = xr.ones_like(ds.bottomDepth)
+        forcing_array_surface = forcing_array_surface.expand_dims(
+            dim='Time', axis=0)
+        section = config['single_column_ecosys_forcing']
+
+        ecosys_forcing_vars = {'IRON_FLUZ_IN', 'depositionFluzNH4',
+                               'depositionFluzNO3', 'dust_FLUZ_IN',
+                               'riverFluzALK', 'riverFluzDIC', 'riverFluzDOC',
+                               'riverFluzDON', 'riverFluzDOP', 'riverFluzFe',
+                               'riverFluzNO3', 'riverFluzPO4', 'riverFluzSiO3',
+                               'PAR_surface', 'PH_PREV', 'PH_PREV_ALT_CO2',
+                               'CO2_alt_gas_flux', 'CO2_gas_flux',
+                               'atmosphericCO2', 'atmosphericCO2_ALT_CO2',
+                               'iceFraction', 'pocToSed', 'surfacePressure',
+                               'shortWaveHeatFlux', 'windSpeedSquared10m'}
+
+        for var in ecosys_forcing_vars:
+            field = section.getfloat(var)
+            ds_forcing[var] = field * forcing_array_surface
+
+        write_netcdf(ds_forcing, 'ecosys_forcing.nc')
+
+        # create forcing stream
+        ds_forcing = xr.Dataset()
+        forcing_array = xr.ones_like(ds.temperature)
+        forcing_array_surface = xr.ones_like(ds.bottomDepth)
+        forcing_array_surface = forcing_array_surface.expand_dims(
+            dim='Time', axis=0)
+        section = config['single_column_forcing']
+        temperature_piston_velocity = section.getfloat(
+            'temperature_piston_velocity')
+        salinity_piston_velocity = section.getfloat(
+            'salinity_piston_velocity')
+        temperature_surface_restoring_value = section.getfloat(
+            'temperature_surface_restoring_value')
+        salinity_surface_restoring_value = section.getfloat(
+            'salinity_surface_restoring_value')
+        temperature_interior_restoring_rate = section.getfloat(
+            'temperature_interior_restoring_rate')
+        salinity_interior_restoring_rate = section.getfloat(
+            'salinity_interior_restoring_rate')
+
+        latent_heat_flux = section.getfloat('latent_heat_flux')
+        sensible_heat_flux = section.getfloat('sensible_heat_flux')
+        shortwave_heat_flux = section.getfloat('shortwave_heat_flux')
+        evaporation_flux = section.getfloat('evaporation_flux')
+        rain_flux = section.getfloat('rain_flux')
+        wind_stress_zonal = section.getfloat('wind_stress_zonal')
+        wind_stress_meridional = section.getfloat('wind_stress_meridional')
+
+        ds_forcing['temperaturePistonVelocity'] = \
+            temperature_piston_velocity * forcing_array_surface
+        ds_forcing['salinityPistonVelocity'] = \
+            salinity_piston_velocity * forcing_array_surface
+        ds_forcing['temperatureSurfaceRestoringValue'] = \
+            temperature_surface_restoring_value * forcing_array_surface
+        ds_forcing['salinitySurfaceRestoringValue'] = \
+            salinity_surface_restoring_value * forcing_array_surface
+        ds_forcing['temperatureInteriorRestoringRate'] = \
+            temperature_interior_restoring_rate * forcing_array
+        ds_forcing['salinityInteriorRestoringRate'] = \
+            salinity_interior_restoring_rate * forcing_array
+        ds_forcing['temperatureInteriorRestoringValue'] = ds.temperature
+        ds_forcing['salinityInteriorRestoringValue'] = ds.salinity
+        ds_forcing['windStressZonal'] = \
+            wind_stress_zonal * forcing_array_surface
+        ds_forcing['windStressMeridional'] = \
+            wind_stress_meridional * forcing_array_surface
+        ds_forcing['latentHeatFlux'] = latent_heat_flux * forcing_array_surface
+        ds_forcing['sensibleHeatFlux'] = \
+            sensible_heat_flux * forcing_array_surface
+        ds_forcing['shortWaveHeatFlux'] = \
+            shortwave_heat_flux * forcing_array_surface
+        ds_forcing['evaporationFlux'] = \
+            evaporation_flux * forcing_array_surface
+        ds_forcing['rainFlux'] = rain_flux * forcing_array_surface
+
+        section = config['single_column_ecosys_forcing']
+        for var in ecosys_forcing_vars:
+            field = section.getfloat(var)
+            ds_forcing[var] = field * forcing_array_surface
+
+        write_netcdf(ds_forcing, 'forcing.nc')

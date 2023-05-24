@@ -1,0 +1,86 @@
+omega:
+  time_management:
+    config_run_duration: 0010_00:00:00
+  tracer_forcing_ecosysTracers:
+    config_use_ecosysTracers: true
+#    config_ecosys_atm_alt_co2_option: constant
+#    config_ecosys_atm_alt_co2_use_eco: false
+#    config_ecosys_atm_co2_option: constant
+#  forcing:
+#    config_use_bulk_thickness_flux: true
+  tracer_forcing_activeTracers:
+    config_use_activeTracers_surface_bulk_forcing: true
+    config_use_activeTracers_surface_restoring: true
+  streams:
+    output:
+      type: output
+      filename_template: output.nc
+      output_interval: 0000_00:00:01
+      clobber_mode: truncate
+      contents:
+      - ecosysDiagFieldsLevel1
+    forcing_data:
+      type: input
+      filename_template: forcing.nc
+      input_interval: initial_only
+      contents:
+      - tracersSurfaceRestoringFields
+      - tracersInteriorRestoringFields
+      - tracersExponentialDecayFields
+      - tracersIdealAgeFields
+      - tracersTTDFields
+      - windStressZonal
+      - windStressMeridional
+      - landIceSurfaceTemperature
+      - atmosphericPressure
+      - latentHeatFlux
+      - sensibleHeatFlux
+      - shortWaveHeatFlux
+      - evaporationFlux
+      - rainFlux
+      - IRON_FLUZ_IN
+      - depositionFluzNH4
+      - depositionFluzNO3
+      - dust_FLUZ_IN
+      - riverFluzALK
+      - riverFluzDIC
+      - riverFluzDOC
+      - riverFluzDON
+      - riverFluzDOP
+      - riverFluzFe
+      - riverFluzNO3
+      - riverFluzPO4
+      - riverFluzSiO3
+      - PAR_surface
+      - PH_PREV
+      - PH_PREV_ALT_CO2
+      - CO2_alt_gas_flux
+      - CO2_gas_flux
+      - atmosphericCO2
+      - atmosphericCO2_ALT_CO2
+      - iceFraction
+      - pocToSed
+      - surfacePressure
+      - shortWaveHeatFlux
+      - windSpeedSquared10m
+    ecosys_monthly_flux:
+      type: input
+      filename_template: forcing.nc
+      input_interval: none
+      packages: ecosysTracersPKG
+      io_type: pnetcdf
+      contents:
+      - xtime
+      - IRON_FLUZ_IN
+      - depositionFluzNH4
+      - depositionFluzNO3
+      - dust_FLUZ_IN
+      - riverFluzALK
+      - riverFluzDIC
+      - riverFluzDOC
+      - riverFluzDON
+      - riverFluzDOP
+      - riverFluzFe
+      - riverFluzNO3
+      - riverFluzPO4
+      - riverFluzSiO3

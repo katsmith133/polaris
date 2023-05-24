@@ -1,7 +1,7 @@
 import os
 
 from polaris import TestCase
-# from polaris.ocean.tests.single_column.forward import Forward
+from polaris.ocean.tests.single_column.ecosys.forward import Forward
 from polaris.ocean.tests.single_column.ecosys.initial_state import InitialState
 # from polaris.ocean.tests.single_column.viz import Viz
 from polaris.validate import compare_variables
@@ -13,7 +13,7 @@ class Ecosys(TestCase):
     the mesh and initial condition, then performs a short forward run on 4
     cores.
     """
-    def __init__(self, test_group, resolution):
+    def __init__(self, test_group, resolution, ecosys=True):
         """
         Create the test case
         Parameters
@@ -33,9 +33,9 @@ class Ecosys(TestCase):
         self.add_step(
             InitialState(test_case=self, resolution=resolution))
 
-#        self.add_step(
-#            Forward(test_case=self, ntasks=1, min_tasks=1,
-#                    openmp_threads=1))
+        self.add_step(
+            Forward(test_case=self, ntasks=1, min_tasks=1,
+                    openmp_threads=1))
 
 #        self.add_step(
 #            Viz(test_case=self))
