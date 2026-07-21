@@ -23,6 +23,7 @@ from polaris.tasks.ocean.realistic_global import add_realistic_global_tasks
 from polaris.tasks.ocean.seamount import add_seamount_tasks
 from polaris.tasks.ocean.single_column import add_single_column_tasks
 from polaris.tasks.ocean.sphere_transport import add_sphere_transport_tasks
+from polaris.tasks.ocean.vert_mix import add_vert_mix_tasks
 
 
 def add_ocean_tasks(component):
@@ -50,6 +51,7 @@ def add_ocean_tasks(component):
 
     # single column tasks
     add_single_column_tasks(component=component)
+    add_vert_mix_tasks(component=component)
 
     # spherical tasks
     add_customizable_viz_tasks(component=component)

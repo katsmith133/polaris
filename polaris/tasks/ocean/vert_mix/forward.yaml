@@ -1,0 +1,86 @@
+mpas-ocean:
+  run_modes:
+    config_ocean_run_mode: forward
+  time_management:
+    config_stop_time: none
+  time_integration:
+    config_dt: 00:05:00
+  split_explicit_ts:
+    config_btr_dt: 0000_00:00:30
+  forcing:
+    config_use_bulk_wind_stress: true
+  tracer_forcing_activeTracers:
+    config_use_activeTracers_surface_bulk_forcing: false
+    config_use_activeTracers_surface_restoring: false
+    config_use_activeTracers_interior_restoring: false
+  streams:
+    restart: {}
+    mixedLayerDepthsOutput:
+      contents:
+      - xtime
+      - dThreshMLD
+      - tThreshMLD
+    output:
+      type: output
+      filename_template: output.nc
+      output_interval: {{ output_interval }}
+      clobber_mode: truncate
+      contents:
+      - tracers
+      - xtime
+      - daysSinceStartOfSim
+      - zMid
+      - zTop
+      - density
+      - normalVelocity
+      - velocityZonal
+      - velocityMeridional
+      - layerThickness
+      - RiTopOfCell
+      - BruntVaisalaFreqTop
+    forcing_data:
+      type: input
+      filename_template: forcing.nc
+      input_interval: initial_only
+      contents:
+      - tracersSurfaceRestoringFields
+      - tracersInteriorRestoringFields
+      - windStressZonal
+      - windStressMeridional
+
+Omega:
+  TimeIntegration:
+    TimeStepper: RungeKutta4
+  Tracers:
+    Base: [Temperature, Salinity]
+  Tendencies:
+    VelDiffTendencyEnable: false
+    VelHyperDiffTendencyEnable: false
+    TracerHorzAdvTendencyEnable: false
+    TracerDiffTendencyEnable: false
+    TracerHyperDiffTendencyEnable: false
+    PressureGradTendencyEnable: false
+    VelocityVertAdvTendencyEnable: false
+    TracerVertAdvTendencyEnable: false
+  IOStreams:
+    RestartWrite:
+      UsePointerFile: false
+      Filename: restart.nc
+      Mode: write
+      IfExists: replace
+      Precision: double
+    History:
+      UsePointerFile: false
+      Filename: output.nc
+      Mode: write
+      Freq: {{ output_interval }}
+      FreqUnits: Seconds
+      IfExists: replace
+      FileFreq: 9999
+      FileFreqUnits: years
+      Contents:
+      - AuxiliaryState
+      - State
+      - Tracers
+      - Eos
+      - SshCell
