@@ -1,4 +1,5 @@
 from polaris.tasks.ocean.analysis import add_analysis_tasks
+from polaris.tasks.ocean.aquaplanet import add_aquaplanet_tasks
 from polaris.tasks.ocean.baroclinic_channel import add_baroclinic_channel_tasks
 from polaris.tasks.ocean.barotropic_channel import add_barotropic_channel_tasks
 from polaris.tasks.ocean.barotropic_gyre import add_barotropic_gyre_tasks
@@ -61,6 +62,7 @@ def add_ocean_tasks(component):
     add_analysis_tasks(component=component)
 
     # spherical tasks
+    add_aquaplanet_tasks(component=component)
     add_customizable_viz_tasks(component=component)
     add_cosine_bell_tasks(component=component)
     add_external_gravity_wave_tasks(component=component)

@@ -1,0 +1,208 @@
+ocean:
+  time_integration:
+    config_dt: {{ dt }}
+  split_explicit_ts:
+    config_btr_dt: {{ btr_dt }}
+  forcing:
+    config_use_bulk_wind_stress: true
+  hmix_del2:
+    config_use_mom_del2: true
+    config_mom_del2: {{ horizontal_viscosity }}
+    config_use_tracer_del2: false
+  hmix_del4:
+    config_use_mom_del4: false
+    config_use_tracer_del4: false
+  cvmix:
+    config_use_cvmix_kpp: true
+    config_cvmix_background_diffusion: {{ background_diffusivity }}
+    config_cvmix_background_viscosity: {{ background_viscosity }}
+    config_cvmix_kpp_use_theory_wave: false
+  debug:
+    config_disable_tr_sflux: false
+    config_disable_thick_sflux: true
+    config_disable_tr_adv: false
+    config_disable_vel_pgrad: false
+    config_disable_vel_vmix: false
+    config_disable_tr_vmix: false
+  tracer_forcing_activeTracers:
+    config_use_activeTracers_surface_restoring: false
+
+mpas-ocean:
+  time_integration:
+    config_time_integrator: split_explicit
+  time_management:
+    config_stop_time: none
+    config_run_duration: {{ duration }}
+  run_modes:
+    config_ocean_run_mode: forward
+  io:
+    config_write_output_on_startup: false
+  forcing:
+    config_bulk_wind_stress_interp_isotropic: true
+    config_use_bulk_thickness_flux: false
+  tracer_forcing_activeTracers:
+    config_use_activeTracers_surface_bulk_forcing: false
+    config_use_activeTracers_interior_restoring: false
+  frazil_ice:
+    config_use_frazil_ice_formation: false
+  ALE_vertical_grid:
+    config_vert_coord_movement: uniform_stretching
+  cvmix:
+    config_use_cvmix: true
+    config_cvmix_background_scheme: constant
+    config_cvmix_shear_mixing_scheme: KPP
+    config_cvmix_kpp_langmuir_mixing_opt: NONE
+    config_cvmix_kpp_langmuir_entrainment_opt: NONE
+  debug:
+    config_disable_vel_hadv: false
+    config_disable_vel_coriolis: false
+    config_disable_tr_nonlocalflux: false
+  streams:
+    forcing_data:
+      type: input
+      filename_template: {{ forcing_filename }}
+      input_interval: initial_only
+      contents:
+      - windStressZonal
+      - windStressMeridional
+      - windSpeed10m
+      - iceFraction
+    output:
+      filename_template: output.nc
+      output_interval: {{ output_interval }}
+      clobber_mode: truncate
+      contents:
+      - xtime
+      - daysSinceStartOfSim
+      - tracers
+      - normalVelocity
+      - relativeVorticity
+      - kineticEnergyCell
+      - layerThickness
+      - ssh
+      - zMid
+      - boundaryLayerDepth
+      - vertDiffTopOfCell
+      - vertViscTopOfCell
+      - surfaceFrictionVelocity
+      - surfaceBuoyancyForcing
+    restart:
+      output_interval: {{ restart_interval }}
+
+Omega:
+  TimeIntegration:
+    TimeStepper: SplitExplicitRK2
+    StartType: {{ start_type }}
+    # Keep the original epoch; Continue restores current time from restart.
+    StartTime: 0001-01-01_00:00:00
+    StopType: AfterDuration
+    StopCriterion: {{ duration }}
+  State:
+    PrescribeVelocityType: None
+    PrescribeThicknessType: None
+    Validation:
+      AbortOnNan: true
+  Tendencies:
+    PVTendencyEnable: true
+    KETendencyEnable: true
+    ThicknessFluxTendencyEnable: true
+    PressureGradTendencyEnable: true
+    VelocityVertAdvTendencyEnable: true
+    ThicknessVertAdvTendencyEnable: true
+    TracerVertAdvTendencyEnable: true
+    # Required to compute the flux used by nonlocal transport; all prescribed
+    # heat/freshwater/salt fluxes are zero in this wind-only experiment.
+    SfcTracerForcingTendencyEnable: true
+    SfcThicknessForcingTendencyEnable: false
+    SurfaceTracerRestoringEnable: false
+    KPPNonLocalTracerFluxTendencyEnable: true
+    KPPNonLocalTracerDiagnosticsEnable: true
+    TracerDiffTendencyEnable: true
+    EddyDiff2: {{ horizontal_diffusivity }}
+    UseCustomTendency: false
+    ManufacturedSolutionTendency: false
+    BottomDragTendency:
+      Enable: true
+      Mode: Implicit
+      Type: Constant
+      BottomDragCoeff: {{ bottom_drag_coefficient }}
+  VertMix:
+    KPP:
+      Enable: true
+      UseLangmuirTurbulence: false
+  IOStreams:
+    Forcing:
+      Filename: {{ forcing_filename }}
+      Freq: 1
+      FreqUnits: OnStartup
+      Contents: [Forcing]
+    History:
+      Filename: output.nc
+      Freq: {{ output_seconds }}
+      FreqUnits: Seconds
+      IfExists: append
+      FileFreq: {{ duration_seconds }}
+      FileFreqUnits: Seconds
+      Contents:
+      - State
+      - Tracers
+      - SshCell
+      - GeomZMid
+      - GeomZInterface
+      - KineticEnergyCell
+      - RelVortVertex
+      - NormalTransportVelocity
+      - KPPMix
+      - VertMix
+    # Keep expensive pressure and tendency snapshots within a short window.
+    Highfreq:
+      UsePointerFile: false
+      Filename: diagnostics.nc
+      Mode: write
+      Precision: double
+      IfExists: append
+      Freq: {{ diagnostics_seconds }}
+      FreqUnits: {{ diagnostics_units }}
+      FileFreq: {{ duration_seconds }}
+      FileFreqUnits: Seconds
+      UseStartEnd: true
+      StartTime: {{ diagnostics_start }}
+      EndTime: {{ diagnostics_end }}
+      Contents:
+      - State
+      - Tracers
+      - SshCell
+      - KineticEnergyCell
+      - NormalTransportVelocity
+      - GeomZMid
+      - GeomZInterface
+      - PressureMid
+      - PressureInterface
+      - GeopotentialMid
+      - Forcing
+      - KPPMix
+      - VertMix
+      # Total registered tendency, not all split/implicit substep increments.
+      - NormalVelocityTend
+      - KPPNonLocalTracerTempTendDiag
+      - KPPNonLocalTracerTempColumnSumDiag
+    RestartRead:
+      UsePointerFile: true
+      PointerFilename: ocn.pointer
+      Mode: read
+      Precision: double
+      Freq: 1
+      FreqUnits: OnStartup
+      UseStartEnd: false
+      Contents: [Restart]
+    RestartWrite:
+      UsePointerFile: true
+      PointerFilename: ocn.pointer
+      Filename: restart.nc
+      Mode: write
+      Precision: double
+      Freq: {{ restart_seconds }}
+      FreqUnits: Seconds
+      IfExists: replace
+      UseStartEnd: false
+      Contents: [Restart]
