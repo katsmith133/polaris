@@ -60,6 +60,12 @@ where $\phi$ is geographic latitude in radians and the default $\tau_0$ is 0.1 N
 
 With `time_step = auto`, the timestep is `resolution * dt_per_km`, with `dt_per_km = 2.5 s km-1`. The defaults are therefore 75 s for `icos30` and 600 s for `qu240`. This scaling is a starting point, not a stability guarantee; assess timestep suitability for other resolutions.
 
+The Laplacian momentum-viscosity coefficient scales linearly with the nominal resolution, using `horizontal_viscosity_per_km`. For Omega, `MeshScalingEnable` also applies a local correction based on edge cell width relative to the mesh median. Thus the configured coefficient sets the run-wide scale, while the Omega operator adjusts it locally for mesh-width variation. The local Omega option does not apply to MPAS-Ocean.
+
+Biharmonic momentum viscosity is enabled and scales as $\nu_4 = c_4\Delta x^3$. Its coefficient matches realistic_global's icos30km value at nominal 30 km. Omega additionally applies its local cubic mesh-width correction through `MeshScalingEnable`.
+
+Harmonic horizontal tracer diffusivity is disabled by default to match realistic_global. To enable it for both MPAS-Ocean and Omega, set `horizontal_diffusivity_enabled = True`; `horizontal_diffusivity_per_km` then sets a coefficient that scales linearly with resolution. The retained coefficient gives 10 m$^2$ s$^{-1}$ at 240 km and 1.25 m$^2$ s$^{-1}$ at 30 km. This is separate from KPP and background vertical diffusivity.
+
 The default `icos30` run is 30 days, and `qu240` is 365 days. Both write history every five days and checkpoints every five days. The separate high-frequency diagnostic stream is disabled in both mesh-specific configs. Restart cadence is independent of history cadence. For Omega continuation, set `start_type = Continue` in the forward-step config and retain a valid `ocn.pointer` and its checkpoint in the forward work directory; the configured duration is the duration of that continuation segment.
 
 ## config options
@@ -77,7 +83,11 @@ Common physics and run options are in `aquaplanet.cfg`; mesh-specific defaults a
 | `start_type` | Omega startup mode, `StartUp` or `Continue` | `StartUp` |
 | `time_step`, `dt_per_km` | Timestep in seconds or automatic resolution scaling | `auto`, 2.5 s km$^{-1}$ |
 | `bottom_drag_coefficient` | Quadratic bottom-drag coefficient | $10^{-3}$ |
-| `horizontal_viscosity`, `horizontal_diffusivity` | Horizontal momentum viscosity and tracer diffusivity | 10000 m$^2$ s$^{-1}$, 10 m$^2$ s$^{-1}$ |
+| `horizontal_viscosity_per_km` | Laplacian horizontal momentum viscosity coefficient, scaled linearly with resolution | 33.3333 m$^2$ s$^{-1}$ km$^{-1}$; gives 8000 m$^2$ s$^{-1}$ at 240 km and 1000 m$^2$ s$^{-1}$ at 30 km |
+| `horizontal_viscosity_del4_enabled` | Enable biharmonic horizontal momentum viscosity | True |
+| `horizontal_viscosity_del4_per_km3` | Biharmonic viscosity coefficient, scaled with resolution cubed | 4.4444 × 10$^6$ m$^4$ s$^{-1}$ km$^{-3}$; gives 6.144 × 10$^{13}$ m$^4$/s at 240 km and 1.2 × 10$^{11}$ m$^4$/s at 30 km |
+| `horizontal_diffusivity_enabled` | Enable harmonic horizontal tracer diffusivity | False |
+| `horizontal_diffusivity_per_km` | Harmonic horizontal tracer diffusivity per km, scaled linearly with resolution | 0.0416667 m$^2$ s$^{-1}$ km$^{-1}$ when enabled; gives 10 m$^2$ s$^{-1}$ at 240 km and 1.25 m$^2$ s$^{-1}$ at 30 km |
 | `background_viscosity`, `background_diffusivity` | Background vertical mixing coefficients | $10^{-4}$ m$^2$ s$^{-1}$, $10^{-5}$ m$^2$ s$^{-1}$ |
 | `diagnostics_enabled` | Enable the separate bounded high-frequency diagnostic stream (Omega only) | False in both mesh overlays |
 

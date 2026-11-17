@@ -8,9 +8,11 @@ ocean:
   hmix_del2:
     config_use_mom_del2: true
     config_mom_del2: {{ horizontal_viscosity }}
-    config_use_tracer_del2: false
+    config_use_tracer_del2: {{ use_horizontal_diffusivity }}
+    config_tracer_del2: {{ horizontal_diffusivity }}
   hmix_del4:
-    config_use_mom_del4: false
+    config_use_mom_del4: {{ use_horizontal_viscosity_del4 }}
+    config_mom_del4: {{ horizontal_viscosity_del4 }}
     config_use_tracer_del4: false
   cvmix:
     config_use_cvmix_kpp: true
@@ -117,7 +119,7 @@ Omega:
     SurfaceTracerRestoringEnable: false
     KPPNonLocalTracerFluxTendencyEnable: true
     KPPNonLocalTracerDiagnosticsEnable: true
-    TracerDiffTendencyEnable: true
+    TracerDiffTendencyEnable: {{ use_horizontal_diffusivity }}
     EddyDiff2: {{ horizontal_diffusivity }}
     UseCustomTendency: false
     ManufacturedSolutionTendency: false
@@ -130,6 +132,9 @@ Omega:
     KPP:
       Enable: true
       UseLangmuirTurbulence: false
+  HorzMesh:
+    # Apply local cell-width scaling on top of the resolution-based ViscDel2.
+    MeshScalingEnable: true
   IOStreams:
     Forcing:
       Filename: {{ forcing_filename }}

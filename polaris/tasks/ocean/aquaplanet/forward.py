@@ -132,9 +132,18 @@ class Forward(OceanModelStep):
                     f'{restart_name!r}'
                 )
         replacements.update(self._diagnostic_replacements(dt))
+        viscosity_per_km = section.getfloat('horizontal_viscosity_per_km')
+        if not np.isfinite(viscosity_per_km) or viscosity_per_km < 0.0:
+            raise ValueError(
+                'aquaplanet:horizontal_viscosity_per_km must be '
+                'finite and nonnegative'
+            )
+        replacements['horizontal_viscosity'] = (
+            f'{viscosity_per_km * self.resolution:g}'
+        )
+        replacements.update(self._tracer_diffusivity_replacements())
+        replacements.update(self._del4_viscosity_replacements())
         for option in [
-            'horizontal_viscosity',
-            'horizontal_diffusivity',
             'background_viscosity',
             'background_diffusivity',
             'bottom_drag_coefficient',
@@ -148,6 +157,61 @@ class Forward(OceanModelStep):
             'forward.yaml',
             template_replacements=replacements,
         )
+
+    def _del4_viscosity_replacements(self):
+        """Return validated biharmonic viscosity options for both models."""
+        section = self.config['aquaplanet']
+        viscosity_del4_per_km3 = section.getfloat(
+            'horizontal_viscosity_del4_per_km3'
+        )
+        use_viscosity_del4 = section.getboolean(
+            'horizontal_viscosity_del4_enabled'
+        )
+        if (
+            not np.isfinite(viscosity_del4_per_km3)
+            or viscosity_del4_per_km3 < 0.0
+        ):
+            raise ValueError(
+                'aquaplanet:horizontal_viscosity_del4_per_km3 must be '
+                'finite and nonnegative'
+            )
+        if use_viscosity_del4 and viscosity_del4_per_km3 <= 0.0:
+            raise ValueError(
+                'A positive horizontal_viscosity_del4_per_km3 is required '
+                'when horizontal_viscosity_del4_enabled is true'
+            )
+        return {
+            'use_horizontal_viscosity_del4': str(use_viscosity_del4).lower(),
+            'horizontal_viscosity_del4': (
+                f'{viscosity_del4_per_km3 * self.resolution**3:g}'
+                if use_viscosity_del4
+                else '0.0'
+            ),
+        }
+
+    def _tracer_diffusivity_replacements(self):
+        """Return validated resolution-scaled tracer del2 options."""
+        section = self.config['aquaplanet']
+        diffusivity_per_km = section.getfloat('horizontal_diffusivity_per_km')
+        use_diffusivity = section.getboolean('horizontal_diffusivity_enabled')
+        if not np.isfinite(diffusivity_per_km) or diffusivity_per_km < 0.0:
+            raise ValueError(
+                'aquaplanet:horizontal_diffusivity_per_km must be '
+                'finite and nonnegative'
+            )
+        if use_diffusivity and diffusivity_per_km <= 0.0:
+            raise ValueError(
+                'A positive horizontal_diffusivity_per_km is required '
+                'when horizontal_diffusivity_enabled is true'
+            )
+        return {
+            'use_horizontal_diffusivity': str(use_diffusivity).lower(),
+            'horizontal_diffusivity': (
+                f'{diffusivity_per_km * self.resolution:g}'
+                if use_diffusivity
+                else '0.0'
+            ),
+        }
 
     def _diagnostic_replacements(self, dt):
         """Configure the bounded Omega diagnostic stream independently."""
