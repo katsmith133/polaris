@@ -6,6 +6,7 @@
 :titlesonly: true
 
 analysis
+aquaplanet
 baroclinic_channel
 barotropic_channel
 barotropic_gyre

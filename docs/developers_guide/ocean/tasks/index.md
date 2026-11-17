@@ -6,6 +6,7 @@
 :titlesonly: true
 
 baroclinic_channel
+aquaplanet
 barotropic_channel
 barotropic_gyre
 correlated_tracers_2d
